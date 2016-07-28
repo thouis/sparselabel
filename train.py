@@ -112,7 +112,7 @@ def err_and_deriv(affinities, pos_counts, neg_counts, idx=74118595):
 
 
 if __name__ == '__main__':
-    h5 = h5py.File('input_labels_output.hdf5')
+    h5 = h5py.File('output/input_labels_output.hdf5')
     images = load_image_volume(sys.argv[1], h5)
     labels = load_label_volume(sys.argv[2], images.shape[0], h5)
 
@@ -153,6 +153,10 @@ if __name__ == '__main__':
             derivs([get_input_volume(images, idx)[np.newaxis, ...],
                     d_err_d_aff[:, idx, ...][np.newaxis, ...]])
         update_predictions(images, affinities, model)
+        aff10 = affinities[:, 10, ...]
+        imread.imsave('output/aff10_{}.png'.format(iter),
+                      (255 * np.transpose(aff10, [1,2,0])).astype(np.uint8))
+
         pos_counts, neg_counts = compute_malis_counts(affinities, labels)
         err, svrs, svrm, d_err_d_aff = err_and_deriv(affinities[...], pos_counts, neg_counts)
         print ("err", err, svrs, svrm)
