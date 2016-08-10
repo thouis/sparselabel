@@ -102,7 +102,6 @@ def annotate(bg_image, labels, screen):
                     pygame.draw.circle(label_surface, (0, 0, 128, 128), (x, y), radius)
                 lastpos = event.pos
 
-
     out_labels = (pygame.surfarray.pixels_blue(label_surface) > 0).astype(np.uint8) * 255
     return out_labels, offset, doexit
 

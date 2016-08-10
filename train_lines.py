@@ -15,6 +15,7 @@ from keras.models import Model, Sequential
 from keras import backend as K
 from keras.utils.visualize_util import plot
 from keras.optimizers import SGD
+from keras import callbacks
 
 
 import numpy as np
@@ -86,7 +87,9 @@ def generate_single_sample(image, dists, input_shape, min_zeros=20):
 
         half = input_shape[0] // 2
         src_indices = [min(max(0, si + idx), image.shape[0] - 1) for si in range(- half, half + 1)]
-        yield images[src_indices, i_slice, j_slice], true_dist[np.newaxis, ...]
+        in_images = [images[si, i_slice, j_slice] for si in src_indices]
+        
+        yield np.stack(in_images), true_dist[np.newaxis, ...]
 
 def generate_batched_samples(image, dists, input_shape, batchsize):
     gen = generate_single_sample(image, dists, input_shape)
@@ -94,10 +97,19 @@ def generate_batched_samples(image, dists, input_shape, batchsize):
         images = np.zeros((batchsize,) + input_shape, dtype=np.float32)
         dists = np.zeros((batchsize, 1) + input_shape[1:], dtype=np.float32)
         for bidx in range(batchsize):
-            im, d = gen.next()
+            im, d = next(gen)
             images[bidx, ...] = im
             dists[bidx, ...] = d
         yield images, dists
+
+
+class LossHistory(callbacks.Callback):
+    def on_train_begin(self, logs={}):
+        self.losses = []
+
+    def on_batch_end(self, batch, logs={}):
+        print("Loss", logs.get('loss'))
+        self.losses.append(logs.get('loss'))
 
 if __name__ == '__main__':
     h5 = h5py.File('input_labels_output.hdf5')
@@ -117,9 +129,10 @@ if __name__ == '__main__':
     output = Convolution2D(1, 3, 3, activation=None, border_mode='same')(post)
 
     model = Model(input=x, output=output)
-    model.compile(loss=image_L1_abs_loss, optimizer=SGD(lr=0.01, momentum=0.9))
+    model.compile(loss=image_L1_abs_loss, optimizer=SGD(lr=0.0001, momentum=0.9))
 
-    model.fit_generator(generate_batched_samples(images, dists, INPUT_SHAPE),
+    model.fit_generator(generate_batched_samples(images, dists, INPUT_SHAPE, 16),
                         nb_epoch=100,
                         samples_per_epoch=100,
-                        verbose=2)
+                        verbose=2,
+                        callbacks=[LossHistory()])
